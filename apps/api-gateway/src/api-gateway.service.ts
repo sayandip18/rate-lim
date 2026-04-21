@@ -8,7 +8,9 @@ export class ApiGatewayService {
     @Inject('MICROSERVICE_CLIENT') private readonly client: ClientProxy,
   ) {}
 
-  handleRequest() {
-    return firstValueFrom(this.client.send('handle_request', {}));
+  handleRequest(userId?: string) {
+    return firstValueFrom(
+      this.client.send('handle_request', { user_id: userId ?? null }),
+    );
   }
 }

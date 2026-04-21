@@ -1,6 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { MicroserviceService } from './microservice.service';
-import { MessagePattern } from '@nestjs/microservices';
+import { MessagePattern, Payload } from '@nestjs/microservices';
 
 @Controller()
 export class MicroserviceController {
@@ -13,7 +13,7 @@ export class MicroserviceController {
   }
 
   @MessagePattern('handle_request')
-  handleRequest() {
-    return this.microserviceService.handleRequest();
+  handleRequest(@Payload() data: { user_id?: string | null }) {
+    return this.microserviceService.handleRequest(data?.user_id ?? null);
   }
 }

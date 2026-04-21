@@ -10,8 +10,11 @@ export class MicroserviceService {
     private readonly requestRepo: Repository<Request>,
   ) {}
 
-  async handleRequest(): Promise<{ id: number; createdAt: Date }> {
-    const saved = await this.requestRepo.save(this.requestRepo.create());
-    return { id: saved.id, createdAt: saved.createdAt };
+  async handleRequest(
+    userId: string | null,
+  ): Promise<{ id: number; userId: string | null; createdAt: Date }> {
+    const entity = this.requestRepo.create({ userId });
+    const saved = await this.requestRepo.save(entity);
+    return { id: saved.id, userId: saved.userId, createdAt: saved.createdAt };
   }
 }

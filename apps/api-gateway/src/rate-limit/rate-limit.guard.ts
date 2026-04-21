@@ -27,7 +27,10 @@ export class RateLimiterGuard implements CanActivate {
       );
     }
 
-    const allowed = await this.rateLimiter.isAllowed(ip);
+    const userId = (request.body as { user_id?: string })?.user_id;
+    const rateLimitKey = userId ?? ip;
+
+    const allowed = await this.rateLimiter.isAllowed(rateLimitKey);
 
     if (!allowed) {
       throw new HttpException(
