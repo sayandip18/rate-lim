@@ -1,0 +1,41 @@
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
+import { Request } from 'express';
+import { RateLimiterService } from './rate-limit.service';
+
+@Injectable()
+export class RateLimiterGuard implements CanActivate {
+  constructor(private readonly rateLimiter: RateLimiterService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request: Request = context.switchToHttp().getRequest();
+
+    const forwarded = request.headers['x-forwarded-for'];
+    const ip =
+      (Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0]) ??
+      request.socket.remoteAddress;
+
+    if (!ip) {
+      throw new HttpException(
+        'Unable to identify client',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const allowed = await this.rateLimiter.isAllowed(ip);
+
+    if (!allowed) {
+      throw new HttpException(
+        'Rate limit exceeded',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    return true;
+  }
+}
