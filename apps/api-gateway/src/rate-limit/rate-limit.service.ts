@@ -18,14 +18,18 @@ export class RateLimiterService implements OnModuleInit {
     const key = `rate_limit:${userId}`;
     const now = Date.now();
 
-    const [allowed] = (await this.redis.eval(
+    const [allowed, remaining] = (await this.redis.eval(
       this.luaScript,
       1,
       key,
       5,
-      5 / 60000,
+      12000,
       now,
     )) as [number, number];
+
+    console.log(
+      `[${userId}] allowed=${allowed}, remaining=${remaining}, now=${now}`,
+    );
 
     return allowed === 1;
   }

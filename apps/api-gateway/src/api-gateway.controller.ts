@@ -1,6 +1,5 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { ApiGatewayService } from './api-gateway.service';
-import { RateLimiterGuard } from './rate-limit/rate-limit.guard';
 
 @Controller()
 export class ApiGatewayController {
@@ -12,9 +11,8 @@ export class ApiGatewayController {
     return { service: 'api-gateway', status: 'ok' };
   }
 
-  @UseGuards(RateLimiterGuard)
   @Post('request')
   handleRequest(@Body() body: { user_id?: string }) {
-    return this.apiGatewayService.handleRequest(body.user_id);
+    return this.apiGatewayService.handleRequest(body?.user_id);
   }
 }

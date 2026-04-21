@@ -32,12 +32,20 @@ export class RateLimiterGuard implements CanActivate {
 
     const allowed = await this.rateLimiter.isAllowed(rateLimitKey);
 
+    console.log(
+      `[GUARD] key=${rateLimitKey} allowed=${allowed} → about to ${allowed ? 'PASS' : 'BLOCK'}`,
+    );
+
     if (!allowed) {
       throw new HttpException(
         'Rate limit exceeded (Redis)',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
+
+    console.log(
+      `[GUARD] key=${rateLimitKey} → PASSED GUARD, calling microservice`,
+    );
 
     return true;
   }
