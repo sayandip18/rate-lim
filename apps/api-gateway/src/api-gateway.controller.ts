@@ -1,5 +1,6 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { ApiGatewayService } from './api-gateway.service';
+import { RateLimiterGuard } from './rate-limit/rate-limit.guard';
 
 @Controller()
 export class ApiGatewayController {
@@ -9,5 +10,11 @@ export class ApiGatewayController {
   health() {
     console.log('[API Gateway] Health check hit');
     return { service: 'api-gateway', status: 'ok' };
+  }
+
+  @UseGuards(RateLimiterGuard)
+  @Post('request')
+  handleRequest() {
+    return this.apiGatewayService.handleRequest();
   }
 }

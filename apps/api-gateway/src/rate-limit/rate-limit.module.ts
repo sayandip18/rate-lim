@@ -1,4 +1,5 @@
 import { Module, Global } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { RateLimiterService } from './rate-limit.service';
 import { RateLimiterGuard } from './rate-limit.guard';
 import { APP_GUARD } from '@nestjs/core';
@@ -9,12 +10,13 @@ import Redis from 'ioredis';
   providers: [
     {
       provide: 'REDIS_CLIENT',
-      useFactory: () => {
+      useFactory: (config: ConfigService) => {
         return new Redis({
-          host: 'localhost',
-          port: 6379,
+          host: config.get('REDIS_HOST', 'redis'),
+          port: config.get<number>('REDIS_PORT', 6379),
         });
       },
+      inject: [ConfigService],
     },
     {
       provide: RateLimiterService,

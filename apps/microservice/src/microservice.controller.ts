@@ -11,4 +11,9 @@ export class MicroserviceController {
     console.log('[Microservice] Health pattern hit');
     return { service: 'microservice', status: 'ok' };
   }
+
+  @MessagePattern('handle_request')
+  handleRequest() {
+    return this.microserviceService.handleRequest();
+  }
 }
