@@ -31,7 +31,7 @@ export class RateLimiterGuard implements CanActivate {
 
     if (!allowed) {
       throw new HttpException(
-        'Rate limit exceeded',
+        'Rate limit exceeded (Redis)',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }

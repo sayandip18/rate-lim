@@ -17,7 +17,13 @@
       "sourceRoot": "apps/api-gateway/src",
       "compilerOptions": {
         "tsConfigPath": "apps/api-gateway/tsconfig.app.json"
-      }
+      },
+      "assets": [
+        {
+          "include": "rate-limit/scripts/*.lua",
+          "outDir": "dist/apps/api-gateway/scripts"
+        }
+      ]
     },
     "microservice": {
       "type": "application",

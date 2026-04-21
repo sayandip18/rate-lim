@@ -1,5 +1,5 @@
 import { Module, Global } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RateLimiterService } from './rate-limit.service';
 import { RateLimiterGuard } from './rate-limit.guard';
 import { APP_GUARD } from '@nestjs/core';
@@ -7,6 +7,7 @@ import Redis from 'ioredis';
 
 @Global()
 @Module({
+  imports: [ConfigModule],
   providers: [
     {
       provide: 'REDIS_CLIENT',
