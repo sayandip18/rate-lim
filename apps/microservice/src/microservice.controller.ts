@@ -16,4 +16,9 @@ export class MicroserviceController {
   handleRequest(@Payload() data: { user_id?: string | null }) {
     return this.microserviceService.handleRequest(data?.user_id ?? null);
   }
+
+  @MessagePattern('get_stats')
+  getStats(@Payload() data: { user_id: string }) {
+    return this.microserviceService.getStats(data.user_id);
+  }
 }

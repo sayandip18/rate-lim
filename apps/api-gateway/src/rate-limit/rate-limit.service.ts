@@ -33,4 +33,48 @@ export class RateLimiterService implements OnModuleInit {
 
     return allowed === 1;
   }
+
+  async getStats(userId: string): Promise<{
+    bucketActive: boolean;
+    tokensRemaining: number | null;
+    nextTokenInMs: number | null;
+  }> {
+    const key = `rate_limit:${userId}`;
+    const capacity = 5;
+    const refillRateMs = 12000;
+    const now = Date.now();
+
+    const [rawTokens, rawLastRefill] = await this.redis.hmget(
+      key,
+      'tokens',
+      'last_refill',
+    );
+
+    if (rawTokens === null || rawLastRefill === null) {
+      return {
+        bucketActive: false,
+        tokensRemaining: null,
+        nextTokenInMs: null,
+      };
+    }
+
+    const tokens = parseInt(rawTokens, 10);
+    const lastRefill = parseInt(rawLastRefill, 10);
+
+    const elapsed = now - lastRefill;
+    const tokensToAdd = Math.floor(elapsed / refillRateMs);
+    const effectiveTokens = Math.min(capacity, tokens + tokensToAdd);
+    const effectiveLastRefill = lastRefill + tokensToAdd * refillRateMs;
+
+    const nextTokenInMs =
+      effectiveTokens >= capacity
+        ? null
+        : Math.max(0, effectiveLastRefill + refillRateMs - now);
+
+    return {
+      bucketActive: true,
+      tokensRemaining: effectiveTokens,
+      nextTokenInMs,
+    };
+  }
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiGatewayService } from './api-gateway.service';
 
 @Controller()
@@ -14,5 +14,10 @@ export class ApiGatewayController {
   @Post('request')
   handleRequest(@Body() body: { user_id?: string }) {
     return this.apiGatewayService.handleRequest(body?.user_id);
+  }
+
+  @Get('stats/:user_id')
+  getStats(@Param('user_id') userId: string) {
+    return this.apiGatewayService.getStats(userId);
   }
 }
