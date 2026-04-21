@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "apps/rate-lim/src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "webpack": true,
+    "tsConfigPath": "apps/rate-lim/tsconfig.app.json"
+  },
+  "monorepo": true,
+  "root": "apps/rate-lim",
+  "projects": {
+    "api-gateway": {
+      "type": "application",
+      "root": "apps/api-gateway",
+      "entryFile": "main",
+      "sourceRoot": "apps/api-gateway/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/api-gateway/tsconfig.app.json"
+      }
+    },
+    "microservice": {
+      "type": "application",
+      "root": "apps/microservice",
+      "entryFile": "main",
+      "sourceRoot": "apps/microservice/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/microservice/tsconfig.app.json"
+      }
+    },
+    "rate-lim": {
+      "type": "application",
+      "root": "apps/rate-lim",
+      "entryFile": "main",
+      "sourceRoot": "apps/rate-lim/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/rate-lim/tsconfig.app.json"
+      }
+    }
+  }
+}
