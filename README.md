@@ -1,98 +1,152 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+## Project Overview
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A NestJS monorepo implementing a layered backend architecture:
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
-```bash
-$ npm install
+```
+Client → Nginx → API Gateway → Microservice → Postgres DB
+                           |
+                         Redis
 ```
 
-## Compile and run the project
+## Components
+
+**Nginx** - Forwards traffic to the api gateway. Handles connection limits, buffering, timeouts, and keep-alive pooling
+
+**API Gateway** - Seat of the main rate limiting algorithm. The token bucket algo is written in a Lua script and injected into the Redis instance. Redis is our central source of truth for all token bucket state. Users are based on user ID and IP address.
+
+**Microservice** - A very basic Nestjs microservice that communicated with the API gateway via a TCP connection
+
+**Postgres instance** - Stores data about the requests. Owned entirely by the microservice.
+
+## Current drawbacks and what can be improved:
+
+1. Redis is a single point of failure. If redis goes down, gateway either rejects everyone (fail-closed) or lets everyone through (fail-open). In this case, everyone is rejected (fail-closed). To ensure availability, we can have primary and replica instances.
+
+2. Token bucket state is ephemeral by default. A Redis restart wipes all bucket states. Users who had tokens consumed suddenly get them back, which can be exploited if an attacker somehow detects the reset. We need persistence (AOF/RDB) or replica failover configured.
+
+3. Latency: Redis roundtrip results in latency. Redis must be close to the API gateway (same docker host for example).
+
+4. No rate limiting between the Gateway and Microservices: A bug, a misconfiguration, etc in gateway or redis config can flood the microservices, with no circuit-breaker at that internal boundary. One possible solution is to have a queue here, so that when such a condition takes place, the microservice can pull jobs out of the queue one by one.
+
+---
+
+## How to run
+
+All services run in Docker. Use `docker compose` (v2 syntax, no hyphen).
 
 ```bash
-# development
-$ npm run start
+# First build
+docker compose up --build
 
-# watch mode
-$ npm run start:dev
+# Normal start
+docker compose up
 
-# production mode
-$ npm run start:prod
+# Stop (keep volumes)
+docker compose down
+
+# Stop + wipe all data
+docker compose down -v
 ```
 
-## Run tests
+---
+
+## Testing
+
+### 1. Concurrent test (same user)
+
+Validates: a single user gets exactly 5 requests under burst, and the rest are rejected.
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+seq 50 | xargs -P 50 -I {} curl -s -o /dev/null -w "%{http_code}\n" \
+-X POST http://localhost/request \
+-H "Content-Type: application/json" \
+-d '{"user_id":"user1"}' | sort | uniq -c
 ```
 
-## Deployment
+Expected:
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+```
+ 5 201
+45 429
+```
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+---
+
+### 2. Parallel users test (multiple users simultaneously)
+
+Validates: each user has an independent token bucket.
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+seq 60 | xargs -P 60 -I {} bash -c '
+u=$((RANDOM % 3 + 4))
+curl -s -o /dev/null -w "user$u %{http_code}\n" \
+-X POST http://localhost/request \
+-H "Content-Type: application/json" \
+-d "{\"user_id\":\"user$u\"}"
+' | sort | uniq -c
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Expected (approximate — distribution varies due to randomness):
 
-## Resources
+```
+5 user1 201
+5 user2 201
+5 user3 201
+# remaining requests per user → 429
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+Each user independently gets 5 successes regardless of the others.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+---
 
-## Support
+### 3. Controlled parallel users (deterministic)
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Same as test 2 but without randomness — each user gets exactly 20 requests fired concurrently.
 
-## Stay in touch
+```bash
+for user in user1 user2 user3; do
+  for i in {1..20}; do
+    echo "$user"
+  done
+done | xargs -P 60 -I {} bash -c '
+curl -s -o /dev/null -w "{} %{http_code}\n" \
+-X POST http://localhost/request \
+-H "Content-Type: application/json" \
+-d "{\"user_id\":\"{}\"}"
+' | sort | uniq -c
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Expected:
 
-## License
+```
+ 5 user1 201
+15 user1 429
+ 5 user2 201
+15 user2 429
+ 5 user3 201
+15 user3 429
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+---
+
+### 4. Burst + refill test
+
+Validates: tokens refill correctly after 1 minute.
+
+```bash
+for round in {1..2}; do
+  echo "Round $round"
+
+  seq 10 | xargs -P 10 -I {} curl -s -o /dev/null -w "%{http_code}\n" \
+  -X POST http://localhost/request \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"user1"}' | sort | uniq -c
+
+  sleep 65
+done
+```
+
+Expected:
+
+- **Round 1:** 5 × `201`, 5 × `429` — bucket starts full, exhausted after 5 requests
+- **Round 2:** 5 × `201`, 5 × `429` — bucket has refilled after the 65-second wait
