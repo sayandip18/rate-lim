@@ -5,8 +5,9 @@ import { ApiGatewayService } from './api-gateway.service';
 export class ApiGatewayController {
   constructor(private readonly apiGatewayService: ApiGatewayService) {}
 
-  @Get()
-  getHello(): string {
-    return this.apiGatewayService.getHello();
+  @Get('health')
+  health() {
+    console.log('[API Gateway] Health check hit');
+    return { service: 'api-gateway', status: 'ok' };
   }
 }

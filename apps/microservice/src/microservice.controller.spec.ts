@@ -11,7 +11,9 @@ describe('MicroserviceController', () => {
       providers: [MicroserviceService],
     }).compile();
 
-    microserviceController = app.get<MicroserviceController>(MicroserviceController);
+    microserviceController = app.get<MicroserviceController>(
+      MicroserviceController,
+    );
   });
 
   describe('root', () => {
